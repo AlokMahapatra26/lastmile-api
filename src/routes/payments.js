@@ -75,21 +75,34 @@ async function handleSuccessfulPayment(paymentIntent) {
   try {
     const { rideId } = paymentIntent.metadata;
     
-    // Update ride payment status
-    await supabase
+    console.log(`Processing payment success for ride ${rideId}`);
+    
+    // Update ride payment status AND change status to completed
+    const { data: updatedRide, error } = await supabase
       .from('rides')
       .update({
         payment_status: 'paid',
         payment_intent_id: paymentIntent.id,
         final_fare: paymentIntent.amount,
-        paid_at: new Date().toISOString()
+        paid_at: new Date().toISOString(),
+        status: 'completed' // IMPORTANT: Change status from 'awaiting_payment' to 'completed'
       })
-      .eq('id', rideId);
+      .eq('id', rideId)
+      .select()
+      .single();
     
-    console.log(`Payment successful for ride ${rideId}`);
+    if (error) {
+      console.error('Error updating ride after payment:', error);
+      throw error;
+    }
+    
+    console.log(`Payment successful for ride ${rideId}. Status updated to completed.`);
+    console.log('Updated ride:', updatedRide);
+    
   } catch (error) {
     console.error('Error handling successful payment:', error);
   }
 }
+
 
 module.exports = router;

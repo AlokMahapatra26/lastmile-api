@@ -139,6 +139,67 @@ router.post('/:rideId/accept', authenticateToken, async (req, res) => {
   }
 });
 
+// // Update ride status
+// router.put('/:rideId/status', authenticateToken, async (req, res) => {
+//   try {
+//     const { rideId } = req.params;
+//     const { status } = req.body;
+//     const userId = req.user.id;
+
+//     const validStatuses = ['picked_up', 'in_progress', 'completed', 'cancelled'];
+//     if (!validStatuses.includes(status)) {
+//       return res.status(400).json({ error: 'Invalid status' });
+//     }
+
+//     // Get ride to check permissions
+//     const { data: ride, error: fetchError } = await supabase
+//       .from('rides')
+//       .select('*')
+//       .eq('id', rideId)
+//       .single();
+
+//     if (fetchError || !ride) {
+//       return res.status(404).json({ error: 'Ride not found' });
+//     }
+
+//     // Check permissions
+//     if (req.user.user_type === 'driver' && ride.driver_id !== userId) {
+//       return res.status(403).json({ error: 'Not authorized to update this ride' });
+//     }
+//     if (req.user.user_type === 'rider' && ride.rider_id !== userId) {
+//       return res.status(403).json({ error: 'Not authorized to update this ride' });
+//     }
+
+//     const updateData = { status };
+
+//     // Add timestamps based on status
+//     if (status === 'picked_up') {
+//       updateData.picked_up_at = new Date().toISOString();
+//     } else if (status === 'completed') {
+//       updateData.completed_at = new Date().toISOString();
+//     } else if (status === 'cancelled') {
+//       updateData.cancelled_at = new Date().toISOString();
+//     }
+
+//     const { data: updatedRide, error } = await supabase
+//       .from('rides')
+//       .update(updateData)
+//       .eq('id', rideId)
+//       .select()
+//       .single();
+
+//     if (error) throw error;
+
+//     res.json({
+//       message: 'Ride status updated successfully',
+//       ride: updatedRide
+//     });
+//   } catch (error) {
+//     console.error('Update ride status error:', error);
+//     res.status(500).json({ error: 'Failed to update ride status' });
+//   }
+// });
+
 // Update ride status
 router.put('/:rideId/status', authenticateToken, async (req, res) => {
   try {
@@ -146,7 +207,8 @@ router.put('/:rideId/status', authenticateToken, async (req, res) => {
     const { status } = req.body;
     const userId = req.user.id;
 
-    const validStatuses = ['picked_up', 'in_progress', 'completed', 'cancelled'];
+    // Updated valid statuses to include payment step
+    const validStatuses = ['picked_up', 'in_progress', 'completed', 'awaiting_payment', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
@@ -171,12 +233,21 @@ router.put('/:rideId/status', authenticateToken, async (req, res) => {
     }
 
     const updateData = { status };
-
+    
     // Add timestamps based on status
     if (status === 'picked_up') {
       updateData.picked_up_at = new Date().toISOString();
+    } else if (status === 'in_progress') {
+      // REMOVED: updateData.started_at = new Date().toISOString();
+      // You can use picked_up_at as the start time or add a new column if needed
     } else if (status === 'completed') {
-      updateData.completed_at = new Date().toISOString();
+      // When driver marks as completed, set to awaiting_payment instead
+      if (req.user.user_type === 'driver') {
+        updateData.status = 'awaiting_payment';
+        updateData.completed_at = new Date().toISOString();
+      } else {
+        updateData.completed_at = new Date().toISOString();
+      }
     } else if (status === 'cancelled') {
       updateData.cancelled_at = new Date().toISOString();
     }
@@ -199,6 +270,8 @@ router.put('/:rideId/status', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to update ride status' });
   }
 });
+
+
 
 // Get user's rides
 router.get('/my-rides', authenticateToken, async (req, res) => {
