@@ -32,7 +32,7 @@ router.post('/request', authenticateToken, async (req, res) => {
     );
     const baseFare = 50; // Base fare in cents
     const perKmRate = 20; // Rate per km in cents
-    const estimatedFare = baseFare + (distance * perKmRate);
+    const estimatedFare = Math.round(baseFare + (distance * perKmRate));
 
     const { data: ride, error } = await supabase
       .from('rides')
@@ -171,7 +171,7 @@ router.put('/:rideId/status', authenticateToken, async (req, res) => {
     }
 
     const updateData = { status };
-    
+
     // Add timestamps based on status
     if (status === 'picked_up') {
       updateData.picked_up_at = new Date().toISOString();
@@ -240,11 +240,11 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; // Radius of the Earth in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const d = R * c; // Distance in km
   return d;
 }
