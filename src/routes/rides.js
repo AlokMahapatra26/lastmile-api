@@ -271,8 +271,6 @@ router.put('/:rideId/status', authenticateToken, async (req, res) => {
   }
 });
 
-
-
 // Get user's rides
 router.get('/my-rides', authenticateToken, async (req, res) => {
   try {
