@@ -30,8 +30,8 @@ router.post('/request', authenticateToken, async (req, res) => {
       destinationLatitude,
       destinationLongitude
     );
-    const baseFare = 100; // Base fare 
-    const perKmRate = 32; // Rate per km 
+    const baseFare = 1000; // Base fare 
+    const perKmRate = 2500; // Rate per km 
     const estimatedFare = Math.round(baseFare + (distance * perKmRate));
 
     const { data: ride, error } = await supabase
