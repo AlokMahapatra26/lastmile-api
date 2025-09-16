@@ -452,5 +452,151 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return d;
 }
 
+// Submit rating and review
+router.post('/:id/rate', authenticateToken, async (req, res) => {
+  try {
+    const rideId = req.params.id;
+    const { rating, review } = req.body;
+    const ratedBy = req.user.id;
+
+    // Validate rating
+    if (rating !== null && (rating < 0 || rating > 5)) {
+      return res.status(400).json({ error: 'Rating must be between 0 and 5' });
+    }
+
+    // Get ride details
+    const { data: ride, error: rideError } = await supabase
+      .from('rides')
+      .select('*')
+      .eq('id', rideId)
+      .eq('status', 'completed')
+      .single();
+
+    if (rideError || !ride) {
+      return res.status(404).json({ error: 'Completed ride not found' });
+    }
+
+    // Determine who is being rated
+    let ratedUser;
+    if (ride.rider_id === ratedBy) {
+      // Rider is rating the driver
+      ratedUser = ride.driver_id;
+    } else if (ride.driver_id === ratedBy) {
+      // Driver is rating the rider
+      ratedUser = ride.rider_id;
+    } else {
+      return res.status(403).json({ error: 'Not authorized to rate this ride' });
+    }
+
+    if (!ratedUser) {
+      return res.status(400).json({ error: 'Cannot determine user to rate' });
+    }
+
+    // Insert or update rating
+    const { data: existingRating } = await supabase
+      .from('ratings')
+      .select('id')
+      .eq('ride_id', rideId)
+      .eq('rated_by', ratedBy)
+      .single();
+
+    let ratingData;
+    if (existingRating) {
+      // Update existing rating
+      const { data, error } = await supabase
+        .from('ratings')
+        .update({
+          rating: rating,
+          review: review || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingRating.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      ratingData = data;
+    } else {
+      // Create new rating
+      const { data, error } = await supabase
+        .from('ratings')
+        .insert({
+          ride_id: rideId,
+          rating: rating,
+          review: review || null,
+          rated_by: ratedBy,
+          rated_user: ratedUser
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      ratingData = data;
+    }
+
+    // Update user's average rating
+    await updateUserAverageRating(ratedUser);
+
+    res.json({ 
+      message: 'Rating submitted successfully', 
+      rating: ratingData 
+    });
+
+  } catch (error) {
+    console.error('Submit rating error:', error);
+    res.status(500).json({ error: 'Failed to submit rating' });
+  }
+});
+
+// Helper function to update user's average rating
+async function updateUserAverageRating(userId) {
+  try {
+    const { data: ratings } = await supabase
+      .from('ratings')
+      .select('rating')
+      .eq('rated_user', userId)
+      .not('rating', 'is', null);
+
+    if (ratings && ratings.length > 0) {
+      const totalRating = ratings.reduce((sum, r) => sum + r.rating, 0);
+      const averageRating = totalRating / ratings.length;
+
+      await supabase
+        .from('users')
+        .update({
+          average_rating: parseFloat(averageRating.toFixed(2)),
+          total_ratings: ratings.length
+        })
+        .eq('id', userId);
+    }
+  } catch (error) {
+    console.error('Error updating average rating:', error);
+  }
+}
+
+// Get ratings for a ride
+router.get('/:id/ratings', authenticateToken, async (req, res) => {
+  try {
+    const rideId = req.params.id;
+
+    const { data: ratings, error } = await supabase
+      .from('ratings')
+      .select(`
+        *,
+        rated_by:rated_by(first_name, last_name),
+        rated_user:rated_user(first_name, last_name)
+      `)
+      .eq('ride_id', rideId);
+
+    if (error) throw error;
+
+    res.json({ ratings });
+  } catch (error) {
+    console.error('Get ratings error:', error);
+    res.status(500).json({ error: 'Failed to get ratings' });
+  }
+});
+
+
 
 module.exports = router;

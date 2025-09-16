@@ -102,4 +102,35 @@ router.put('/location', authenticateToken, async (req, res) => {
   }
 });
 
+// Get all ratings for a specific user
+router.get('/ratings/:userId', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    // Only allow users to view their own ratings or make it public
+    if (req.user.id !== userId) {
+      return res.status(403).json({ error: 'Not authorized to view these ratings' });
+    }
+
+    const { data: ratings, error } = await supabase
+      .from('ratings')
+      .select(`
+        *,
+        rated_by:rated_by(first_name, last_name),
+        rated_user:rated_user(first_name, last_name)
+      `)
+      .eq('rated_user', userId)
+      .not('rating', 'is', null)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ ratings });
+  } catch (error) {
+    console.error('Get user ratings error:', error);
+    res.status(500).json({ error: 'Failed to get user ratings' });
+  }
+});
+
+
 module.exports = router;
