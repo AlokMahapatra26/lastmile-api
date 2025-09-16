@@ -306,6 +306,138 @@ router.get('/my-rides', authenticateToken, async (req, res) => {
   }
 });
 
+// Rider cancels ride (only if not accepted by driver)
+router.post('/:id/cancel', authenticateToken, async (req, res) => {
+  try {
+    const rideId = req.params.id;
+    const userId = req.user.id;
+    const { reason } = req.body;
+
+    // Fetch the ride details
+    const { data: ride, error } = await supabase
+      .from('rides')
+      .select('*')
+      .eq('id', rideId)
+      .single();
+
+    if (error || !ride) {
+      return res.status(404).json({ error: 'Ride not found' });
+    }
+
+    // Check if current user is the rider
+    if (ride.rider_id !== userId) {
+      return res.status(403).json({ error: 'Not authorized to cancel this ride' });
+    }
+
+    // Business Rule: Rider can't cancel if driver has already accepted
+    if (['accepted', 'picked_up', 'in_progress', 'completed'].includes(ride.status)) {
+      return res.status(400).json({ 
+        error: "Cannot cancel ride after driver has accepted. Please contact the driver." 
+      });
+    }
+
+    // Check if ride is already cancelled
+    if (['cancelled', 'declined'].includes(ride.status)) {
+      return res.status(400).json({ error: 'Ride is already cancelled' });
+    }
+
+    // Cancel the ride
+    const { data: updatedRide, error: updateError } = await supabase
+      .from('rides')
+      .update({
+        status: 'cancelled',
+        cancelled_by: 'rider',
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: reason || 'Cancelled by rider'
+      })
+      .eq('id', rideId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Cancel ride error:', updateError);
+      return res.status(500).json({ error: 'Failed to cancel ride' });
+    }
+
+    console.log(`Ride ${rideId} cancelled by rider ${userId}`);
+
+    res.json({ 
+      message: 'Ride cancelled successfully', 
+      ride: updatedRide 
+    });
+
+  } catch (error) {
+    console.error('Rider cancel error:', error);
+    res.status(500).json({ error: 'Failed to cancel ride' });
+  }
+});
+
+// Driver declines ride request
+router.post('/:id/decline', authenticateToken, async (req, res) => {
+  try {
+    const rideId = req.params.id;
+    const driverId = req.user.id;
+    const { reason } = req.body;
+
+    // Fetch the ride details
+    const { data: ride, error } = await supabase
+      .from('rides')
+      .select('*')
+      .eq('id', rideId)
+      .single();
+
+    if (error || !ride) {
+      return res.status(404).json({ error: 'Ride not found' });
+    }
+
+    // Check if current user is a driver
+    if (req.user.user_type !== 'driver') {
+      return res.status(403).json({ error: 'Only drivers can decline rides' });
+    }
+
+    // Check if ride is in a declinable state
+    if (['completed', 'cancelled', 'declined'].includes(ride.status)) {
+      return res.status(400).json({ error: 'Cannot decline this ride' });
+    }
+
+    // For requested rides, any driver can decline
+    // For accepted rides, only the assigned driver can decline
+    if (ride.status === 'accepted' && ride.driver_id !== driverId) {
+      return res.status(403).json({ error: 'Not authorized to decline this ride' });
+    }
+
+    // Decline the ride
+    const { data: updatedRide, error: updateError } = await supabase
+      .from('rides')
+      .update({
+        status: 'declined',
+        cancelled_by: 'driver',
+        cancelled_at: new Date().toISOString(),
+        cancellation_reason: reason || 'Declined by driver',
+        driver_id: ride.status === 'requested' ? null : ride.driver_id // Keep driver if already assigned
+      })
+      .eq('id', rideId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Decline ride error:', updateError);
+      return res.status(500).json({ error: 'Failed to decline ride' });
+    }
+
+    console.log(`Ride ${rideId} declined by driver ${driverId}`);
+
+    res.json({ 
+      message: 'Ride declined successfully', 
+      ride: updatedRide 
+    });
+
+  } catch (error) {
+    console.error('Driver decline error:', error);
+    res.status(500).json({ error: 'Failed to decline ride' });
+  }
+});
+
 // Helper function to calculate distance
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; // Radius of the Earth in km
@@ -319,5 +451,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   const d = R * c; // Distance in km
   return d;
 }
+
 
 module.exports = router;
