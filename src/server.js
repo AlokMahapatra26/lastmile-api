@@ -20,11 +20,11 @@ app.use(helmet());
 app.use(compression());
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-app.use(limiter);
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100 // limit each IP to 100 requests per windowMs
+// });
+// app.use(limiter);
 
 // CORS configuration
 app.use(cors({
@@ -36,7 +36,7 @@ app.use(cors({
 app.use(morgan('combined'));
 
 // Body parsing
-app.use('/webhook', express.raw({type: 'application/json'}));
+// app.use('/webhook', express.raw({type: 'application/json'}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -61,7 +61,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler - FIXED: removed the invalid '*' path
+
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
