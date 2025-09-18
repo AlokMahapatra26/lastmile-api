@@ -4,33 +4,6 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Update user profile
-// router.put('/profile', authenticateToken, async (req, res) => {
-//   try {
-//     const { firstName, lastName, phoneNumber } = req.body;
-//     const userId = req.user.id;
-
-//     const { data: user, error } = await supabase
-//       .from('users')
-//       .update({
-//         first_name: firstName,
-//         last_name: lastName,
-//         phone_number: phoneNumber,
-//         updated_at: new Date().toISOString()
-//       })
-//       .eq('id', userId)
-//       .select()
-//       .single();
-
-//     if (error) throw error;
-
-//     const { password_hash, ...userWithoutPassword } = user;
-//     res.json({ message: 'Profile updated successfully', user: userWithoutPassword });
-//   } catch (error) {
-//     console.error('Profile update error:', error);
-//     res.status(500).json({ error: 'Failed to update profile' });
-//   }
-// });
 
 router.put('/profile', authenticateToken, async (req, res) => {
   try {

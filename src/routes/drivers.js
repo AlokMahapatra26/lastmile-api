@@ -66,10 +66,10 @@ router.get('/stats', authenticateToken, async (req, res) => {
     res.json({
       totalStats: {
         totalRides,
-        totalGrossEarnings, // What riders paid
-        platformFee,        // 20% commission
-        totalNetEarnings,   // Driver's share (80%)
-        availableToWithdraw: totalNetEarnings // In real app, subtract already withdrawn
+        totalGrossEarnings, 
+        platformFee,        
+        totalNetEarnings,   
+        availableToWithdraw: totalNetEarnings 
       },
       periodStats: {
         today: {
@@ -85,7 +85,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
           earnings: monthEarnings
         }
       },
-      recentRides: rides.slice(0, 10) // Last 10 rides for details
+      recentRides: rides.slice(0, 10) 
     });
 
   } catch (error) {

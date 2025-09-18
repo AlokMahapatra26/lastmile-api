@@ -85,7 +85,7 @@ async function handleSuccessfulPayment(paymentIntent) {
         payment_intent_id: paymentIntent.id,
         final_fare: paymentIntent.amount,
         paid_at: new Date().toISOString(),
-        status: 'completed' // IMPORTANT: Change status from 'awaiting_payment' to 'completed'
+        status: 'completed'
       })
       .eq('id', rideId)
       .select()
