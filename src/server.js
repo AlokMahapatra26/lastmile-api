@@ -10,39 +10,26 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const rideRoutes = require('./routes/rides');
 const paymentRoutes = require('./routes/payments');
-const driverRouters = require('./routes/drivers');
+const driverRouters = require('./routes/drivers')
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-
-const allowedOrigins = [
-  'https://lastmile-client.vercel.app',
-  'http://localhost:3000',
-  process.env.FRONTEND_URL, // optional: env override
-].filter(Boolean);
-
-const corsOptions = {
-  origin(origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Origin not allowed by CORS'));
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-};
 
 // Security middleware
 app.use(helmet());
 app.use(compression());
 
 
-// CORS configuration (global)
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL || 'http://localhost:3000',
+    'https://lastmile-client.vercel.app'
+  ],
+  credentials: true
+}));
 
 
+// Logging
 app.use(morgan('combined'));
 
 app.use(express.json({ limit: '10mb' }));
@@ -53,24 +40,19 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/rides', rideRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/drivers', driverRouters);
+app.use('/api/drivers' , driverRouters)
 
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Error handling middleware
+// Error handling middleware (must be before 404 handler)
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  if (req.headers.origin && allowedOrigins.includes(req.headers.origin)) {
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
-    res.setHeader('Vary', 'Origin'); // good practice for caches
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
   res.status(500).json({
     error: 'Something went wrong!',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
   });
 });
 
